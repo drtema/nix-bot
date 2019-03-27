@@ -1,1 +1,1 @@
-export * from '/nix-bot';
+export * from './nix-bot';

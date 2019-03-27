@@ -9,7 +9,10 @@
         "node-telegram-bot-api": "^0.28.0"
     },
     "devDependencies": {
+        "babel-preset-env": "^1.7.0",
+        "babel-register": "^6.26.0"
     },
     "scripts": {
+        "start": "node main.js"
     }
 }

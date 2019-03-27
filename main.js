@@ -1,2 +1,7 @@
 'use strict';
-module.exports = require('./src');
+require('babel-register')({
+  presets: [ 'env' ]
+})
+
+// Import the rest of our application.
+module.exports = require('./src')
