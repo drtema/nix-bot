@@ -1,0 +1,15 @@
+{
+    "name": "nix-bot",
+    "version": "1.0.0",
+    "description": "nix telegram bot",
+    "main": "main.js",
+    "author": "dr.tema",
+    "license": "ISC",
+    "dependencies": {
+        "node-telegram-bot-api": "^0.28.0"
+    },
+    "devDependencies": {
+    },
+    "scripts": {
+    }
+}

@@ -1,0 +1,10 @@
+.vscode/
+.idea/
+*.log
+node_modules
+dist
+output
+docs
+report
+build
+nul
