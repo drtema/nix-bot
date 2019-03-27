@@ -27,5 +27,5 @@ bot.onText(/\/start/, msg => {
 })
 
 bot.on('message', msg => {
-  console.log(msg);
+  bot.sendMessage(msg.chat.id, `Привет Жека!`);
 })

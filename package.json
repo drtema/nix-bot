@@ -10,9 +10,11 @@
     },
     "devDependencies": {
         "babel-preset-env": "^1.7.0",
-        "babel-register": "^6.26.0"
+        "babel-register": "^6.26.0",
+        "forever": "^0.15.3"
     },
     "scripts": {
-        "start": "node main.js"
+        "start": "node ./main.js",
+        "start-dev": "forever --watch --watchDirectory ./src ./main.js"
     }
 }
