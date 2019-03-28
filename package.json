@@ -6,7 +6,8 @@
     "author": "dr.tema",
     "license": "ISC",
     "dependencies": {
-        "node-telegram-bot-api": "^0.28.0"
+        "node-telegram-bot-api": "^0.28.0",
+        "xml-js": "^1.6.11"
     },
     "devDependencies": {
         "babel-preset-env": "^1.7.0",
