@@ -105,7 +105,7 @@ bot.onText(/\/start/, msg => {
 })
 
 bot.on('message', msg => {
-  bot.sendMessage(msg.chat.id, `Привет, ${msg.from.first_name}!`);
+  // bot.sendMessage(msg.chat.id, `Привет, ${msg.from.first_name}!`);
 })
 
 bot.onText(/\/help/, msg => {
