@@ -1,10 +1,12 @@
 import TelegramBot from 'node-telegram-bot-api';
 import request from "request";
 import convert from "xml-js";
+import fs from 'fs';
+import { isObject } from 'util';
 
 const TOKEN = '670943276:AAG79PnY2E5fDgDbxCi46pZlhgktkv7rTok';
-
-var options = {
+const convertOptions = { compact: true, spaces: 4, ignoreComment: true, alwaysChildren: true };
+const options = {
   method: 'GET',
   url: 'https://nixexchange.com/best.xml',
   headers:
@@ -18,26 +20,45 @@ var options = {
     }
 };
 
-var xml =
-  '<?xml version="1.0" encoding="utf-8"?>' +
-  '<note importance="high" logged="true">' +
-  '    <title>Happy</title>' +
-  '    <todo>Work</todo>' +
-  '    <todo>Play</todo>' +
-  '</note>';
+const download = (msg, url, cb) => {
+  const file = fs.createWriteStream("rates.xml");
+  const sendReq = request.get(url);
 
-const ratesRequest = () => request(options, (error, response, body) => {
-  if (error) console.log(error);
-  // console.log(response.toJSON());
+  sendReq.on('response', (response) => {
+    if (response.statusCode !== 200) {
+      return cb('Response status was ' + response.statusCode);
+    }
+    sendReq.pipe(file);
+  });
 
-  const convertedBody = convert.xml2json(response.toJSON().body, { compact: true, spaces: 4 });
+  file.on('finish', () => file.close(() => cb(msg)));
 
+  sendReq.on('error', (err) => {
+    fs.unlink("rates.xml");
+    return cb(err.message);
+  });
+
+  file.on('error', (err) => {
+    fs.unlink("rates.xml");
+    return cb(err.message);
+  });
+};
+
+const readRates = msg => {
+  if (!isObject(msg)) {
+    console.log(msg);
+    return;
+  }
+  const rates = fs.readFileSync('rates.xml', 'utf8');
+  const convertedBody = convert.xml2json(rates, convertOptions);
+
+  bot.sendMessage(msg.chat.id, `OK!`);
   console.log(convertedBody);
-});
-
+  console.log(msg);
+};
 
 console.log('Bot has been started ....')
-let counter = Math.floor(Math.random() * 1234);
+
 const bot = new TelegramBot(TOKEN, {
   polling: {
     interval: 300,
@@ -56,12 +77,10 @@ bot.onText(/\/start/, msg => {
 })
 
 bot.on('message', msg => {
-  bot.sendMessage(msg.chat.id, `Привет Жека!`);
+  bot.sendMessage(msg.chat.id, `Привет, ${msg.from.first_name}!`);
 })
 
 bot.onText(/\/rates/, msg => {
   const { id } = msg.chat
-
-  bot.sendMessage(msg.chat.id, `${ratesRequest()}!`);
-  console.log(msg)
+  download(msg, options.url, readRates);
 })
