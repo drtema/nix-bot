@@ -97,6 +97,10 @@ bot.onText(/\/start/, msg => {
   const { id } = msg.chat
 
   bot.sendMessage(msg.chat.id, `Привет, ${msg.from.first_name}!`);
+  const mes = Object.entries(curMap).map(([k,v]) => {
+    return `\nКурсы по ${v}: /rates_${k}`;
+  });
+  bot.sendMessage(msg.chat.id, `Доступные команды: ${mes.toString()}`);
   console.log(msg)
 })
 
