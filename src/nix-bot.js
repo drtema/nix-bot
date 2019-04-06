@@ -58,7 +58,9 @@ const download = (url, cb) => {
 };
 
 const readRates = msg => {
-  console.log(msg);
+  const date = new Date();
+  const time = date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds();
+  console.log(`[${time}]:${msg}`);
   const json = fs.createWriteStream("rates.json");
   const ratesXML = fs.readFileSync('rates.xml', 'utf8');
   const convertedBody = convert.xml2json(ratesXML, convertOptions);
@@ -97,7 +99,7 @@ bot.onText(/\/start/, msg => {
   const { id } = msg.chat
 
   bot.sendMessage(msg.chat.id, `Привет, ${msg.from.first_name}!`);
-  const mes = Object.entries(curMap).map(([k,v]) => {
+  const mes = Object.entries(curMap).map(([k, v]) => {
     return `\nКурсы по ${v}: /rates_${k}`;
   });
   bot.sendMessage(msg.chat.id, `Доступные команды: ${mes.toString()}`);
@@ -109,7 +111,7 @@ bot.on('message', msg => {
 })
 
 bot.onText(/\/help/, msg => {
-  const mes = Object.entries(curMap).map(([k,v]) => {
+  const mes = Object.entries(curMap).map(([k, v]) => {
     return `\nКурсы по ${v}: /rates_${k}`;
   });
   bot.sendMessage(msg.chat.id, `Доступные команды: ${mes.toString()}`);
