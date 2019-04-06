@@ -33,6 +33,26 @@ const curMap = {
   ['EXMUSD']: 'Exmo-Code USD',
 };
 
+const helpOptions = {
+  reply_markup: JSON.stringify({
+    inline_keyboard: [
+      [{ text: 'Помощь', callback_data: '_help' }],
+      [{ text: 'Курсы', callback_data: '_rates' }],
+    ]
+  })
+};
+const initRatesButtons = () => {
+  const btns = Object.entries(curMap).map(([k, v]) => [{
+    ['text']: v,
+    ['callback_data']: `rates_${k}`
+  }]);
+  return {
+    reply_markup: JSON.stringify({
+      inline_keyboard: btns
+    })
+  }
+};
+const ratesButtons = initRatesButtons();
 const download = (url, cb) => {
   const file = fs.createWriteStream("rates.xml");
   const sendReq = request.get(url);
@@ -57,9 +77,13 @@ const download = (url, cb) => {
   });
 };
 
-const readRates = msg => {
+const getCurrentTime = () => {
   const date = new Date();
-  const time = date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds();
+  return `${date.getHours() < 10 ? '0' + date.getHours() : date.getHours()}:${date.getMinutes() < 10 ? '0' + date.getMinutes() : date.getMinutes()}:${date.getSeconds() < 10 ? '0' + date.getSeconds() : date.getSeconds()}`;
+};
+
+const readRates = msg => {
+  const time = getCurrentTime();
   console.log(`[${time}]:${msg}`);
   const json = fs.createWriteStream("rates.json");
   const ratesXML = fs.readFileSync('rates.xml', 'utf8');
@@ -78,11 +102,10 @@ console.log('Bot has been started ....')
 ratesUpdate();
 
 const findRates = (msg, cur) => {
-  const { id } = msg.chat;
-  console.log(msg);
+  const { id } = msg.chat || msg.from;
   const ratesJSON = JSON.parse(fs.readFileSync('./rates.json', 'utf8')).rates.item;
   const mes = ratesJSON.filter(rate => rate.from.value === cur).map(({ out, to, amount }) => `\n- ${out.value} ${curMap[to.value] || to.value}, Резерв: ${amount.value}`);
-  bot.sendMessage(msg.chat.id, `Текущий курс за 1 ${curMap[cur]}: ${mes.toString()}`);
+  bot.sendMessage(id, `Текущий курс за 1 ${curMap[cur]}: ${mes.toString()}`);
 };
 
 const bot = new TelegramBot(TOKEN, {
@@ -99,10 +122,7 @@ bot.onText(/\/start/, msg => {
   const { id } = msg.chat
 
   bot.sendMessage(msg.chat.id, `Привет, ${msg.from.first_name}!`);
-  const mes = Object.entries(curMap).map(([k, v]) => {
-    return `\nКурсы по ${v}: /rates_${k}`;
-  });
-  bot.sendMessage(msg.chat.id, `Доступные команды: ${mes.toString()}`);
+  bot.sendMessage(msg.chat.id, `Доступные команды:`, helpOptions);
   console.log(msg)
 })
 
@@ -111,11 +131,26 @@ bot.on('message', msg => {
 })
 
 bot.onText(/\/help/, msg => {
-  const mes = Object.entries(curMap).map(([k, v]) => {
-    return `\nКурсы по ${v}: /rates_${k}`;
-  });
-  bot.sendMessage(msg.chat.id, `Доступные команды: ${mes.toString()}`);
+  bot.sendMessage(msg.chat.id, `Доступные команды:`, helpOptions);
 })
+
+bot.on('callback_query', msg => {
+  const answer = msg.data.split('_');
+  if (answer[0] === 'rates') {
+    findRates(msg, answer[1]);
+    return;
+  }
+  switch (answer[1]) {
+    case 'help':
+      bot.sendMessage(msg.from.id, `Доступные команды:`, helpOptions);
+      break;
+    case 'rates':
+      bot.sendMessage(msg.from.id, `Доступные валюты:`, ratesButtons);
+      break;
+    default:
+      break;
+  }
+});
 
 bot.onText(/\/rates_ALL/, msg => {
   const { id } = msg.chat;
