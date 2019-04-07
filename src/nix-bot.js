@@ -38,13 +38,15 @@ const helpOptions = {
     inline_keyboard: [
       [{ text: 'Помощь', callback_data: '_help' }],
       [{ text: 'Курсы', callback_data: '_rates' }],
+      // [{ text: 'Просчитать обмен', callback_data: '_calc' }],
+      [{ text: 'Заказать резерв', callback_data: '_amount' }],
     ]
   })
 };
-const initRatesButtons = () => {
+const initRatesButtons = (command) => {
   const btns = Object.entries(curMap).map(([k, v]) => [{
     ['text']: v,
-    ['callback_data']: `rates_${k}`
+    ['callback_data']: `${command}_${k}`
   }]);
   return {
     reply_markup: JSON.stringify({
@@ -52,7 +54,8 @@ const initRatesButtons = () => {
     })
   }
 };
-const ratesButtons = initRatesButtons();
+const ratesButtons = initRatesButtons('rates');
+const amountButtons = initRatesButtons('amount');
 const download = (url, cb) => {
   const file = fs.createWriteStream("rates.xml");
   const sendReq = request.get(url);
@@ -92,8 +95,24 @@ const readRates = msg => {
   json.on('finish', () => json.close(() => { console.log('ratesJSON saved') }));
 };
 
+const amountOrdersUpdate = (orders, cb = () => { }) => {
+  const json = fs.createWriteStream("amountOrders.json");
+  json.write(JSON.stringify({ "amountNotes": orders }), 'utf8');
+  json.on('finish', () => json.close());
+  cb();
+}
+
+const amountNotes = JSON.parse(fs.readFileSync('amountOrders.json', 'utf8')).amountNotes;;
+
 const ratesUpdate = () => setTimeout(() => {
   download(options.url, readRates);
+  amountNotes.forEach((order, index) => {
+    if (findAmount(order.currency, order.amount)) {
+      bot.sendMessage(order.user, `Запрашиваемая вами сумма ${order.amount} ${curMap[order.currency]} уже доступна для обмена.`);
+      amountNotes.splice(index, 1);
+      amountOrdersUpdate(amountNotes);
+    }
+  });
   ratesUpdate();
 }, 60000);
 
@@ -108,6 +127,53 @@ const findRates = (msg, cur) => {
   bot.sendMessage(id, `Текущий курс за 1 ${curMap[cur]}: ${mes.toString()}`);
 };
 
+const findAmount = (cur, ordAmount) => {
+  const ratesJSON = JSON.parse(fs.readFileSync('./rates.json', 'utf8')).rates.item;
+  return ratesJSON.find(rate => rate.to.value === cur).amount.value >= ordAmount;
+};
+
+const restartMessageHandler = () => {
+  bot.off('message');
+  bot.on('message', msg => {
+    console.log(msg);
+  })
+};
+
+const orderAmount = (msg, cur) => {
+  bot.sendMessage(msg.from.id, `Введите нужную сумму`).then(() => {
+    const timer = setTimeout(() => {
+      bot.sendMessage(msg.from.id, `Ваш запрос отменен.`);
+      restartMessageHandler();
+    }, 60000);
+    bot.on('message', msg => {
+      timer && clearTimeout(timer);
+      const ordAmount = Number(msg.text);
+      if (isNaN(ordAmount)) {
+        bot.sendMessage(msg.from.id, `Введенное число неверно. Повторите ввод.`);
+        restartMessageHandler();
+        orderAmount(msg, cur);
+        return;
+      }
+      if (findAmount(cur, ordAmount)) {
+        bot.sendMessage(msg.from.id, `Запрашиваемая вами сумма ${curMap[cur]} уже доступна для обмена.`);
+      } else {
+        const isOrderExist = amountNotes.some(order => order.user === msg.from.id && order.currency === cur && order.amount == ordAmount);
+        if (isOrderExist) {
+          bot.sendMessage(msg.from.id, `Ваш запрос на ${ordAmount} ${curMap[cur]} уже существует.\nКак только необходимая сумма появится у нас в резервах, мы Вам сообщим.`);
+          restartMessageHandler();
+          return;
+        }
+        amountNotes.push({ user: msg.from.id, currency: cur, amount: ordAmount });
+        amountOrdersUpdate(amountNotes, () => {
+          bot.sendMessage(msg.from.id, `Ваш запрос на ${ordAmount} ${curMap[cur]} успешно создан.\nКак только необходимая сумма появится у нас в резервах, мы Вам сообщим.`);
+        });
+      }
+      console.log(amountNotes);
+      restartMessageHandler();
+    })
+  });
+};
+
 const bot = new TelegramBot(TOKEN, {
   polling: {
     interval: 300,
@@ -117,17 +183,22 @@ const bot = new TelegramBot(TOKEN, {
     }
   }
 })
-
+// bot.sendMessage(-1001179107043, `Доступные команды:`, helpOptions).then(res => {
+//   bot.pinChatMessage(res.chat.id, res.message_id);
+// });
 bot.onText(/\/start/, msg => {
   const { id } = msg.chat
 
-  bot.sendMessage(msg.chat.id, `Привет, ${msg.from.first_name}!`);
-  bot.sendMessage(msg.chat.id, `Доступные команды:`, helpOptions);
+  bot.sendMessage(msg.chat.id, `Привет, ${msg.from.first_name}!`).then(() => {
+    bot.sendMessage(msg.chat.id, `Доступные команды:`, helpOptions).then(res => {
+      bot.pinChatMessage(res.chat.id, res.message_id);
+    });
+  });
   console.log(msg)
 })
 
 bot.on('message', msg => {
-  // bot.sendMessage(msg.chat.id, `Привет, ${msg.from.first_name}!`);
+  console.log(msg);
 })
 
 bot.onText(/\/help/, msg => {
@@ -140,12 +211,22 @@ bot.on('callback_query', msg => {
     findRates(msg, answer[1]);
     return;
   }
+  if (answer[0] === 'amount') {
+    orderAmount(msg, answer[1]);
+    return;
+  }
   switch (answer[1]) {
     case 'help':
       bot.sendMessage(msg.from.id, `Доступные команды:`, helpOptions);
       break;
     case 'rates':
       bot.sendMessage(msg.from.id, `Доступные валюты:`, ratesButtons);
+      break;
+    case 'amount':
+      bot.sendMessage(msg.from.id, `Доступные валюты:`, amountButtons);
+      break;
+      // case 'calc':
+      //   bot.sendMessage(msg.from.id, `Доступные валюты:`, ratesButtons);
       break;
     default:
       break;
