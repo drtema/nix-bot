@@ -128,8 +128,14 @@ const findRates = (msg, cur) => {
 };
 
 const findAmount = (cur, ordAmount) => {
-  const ratesJSON = JSON.parse(fs.readFileSync('./rates.json', 'utf8')).rates.item;
-  return ratesJSON.find(rate => rate.to.value === cur).amount.value >= ordAmount;
+  let ratesJSON;
+  try {
+    ratesJSON = JSON.parse(fs.readFileSync('./rates.json', 'utf8')).rates.item;
+  } catch (e) {
+    console.log(`Somthing went wrong. Empty rates.json.\n${e}`);
+    return null;
+  }
+  return ratesJSON && ratesJSON.find(rate => rate.to.value === cur).amount.value >= ordAmount;
 };
 
 const restartMessageHandler = () => {
